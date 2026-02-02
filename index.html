@@ -16,6 +16,10 @@
             <div class="game-stats">
                 <div class="round-tracker">Round: <span id="current-round">1</span> / 10</div>
                 <div class="score-display">Score: <span id="current-score">0</span></div>
+                <div class="streak-display hidden" id="streak-display">🔥 0</div>
+                <div class="high-score-display hidden">
+                    Best: <span id="high-score-header">0</span>
+                </div>
                 <button id="help-btn" class="help-button" title="How to Play">?</button>
             </div>
         </header>
@@ -24,7 +28,7 @@
         <div id="help-modal" class="help-modal hidden">
             <div class="help-content">
                 <button id="help-close-btn" class="help-close-btn">&times;</button>
-                <h2>🏔️ How Scoring Works</h2>
+                <h2>🏔️ How to Play</h2>
                 
                 <div class="help-section">
                     <h3>🎯 The Goal</h3>
@@ -42,9 +46,19 @@
                 </div>
 
                 <div class="help-section">
-                    <h3>📏 Distance Formula</h3>
-                    <p class="formula">Points = 1000 - (distance in km × 0.08)</p>
-                    <p class="formula-note">Distance is measured between country centers</p>
+                    <h3>🔥 Streak Bonus</h3>
+                    <p>Get consecutive correct guesses for bonus points!</p>
+                    <ul>
+                        <li>2 in a row: +10% bonus</li>
+                        <li>3 in a row: +20% bonus</li>
+                        <li>4 in a row: +30% bonus</li>
+                        <li>5+ in a row: +40-50% bonus (max)</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h3>💡 Hints</h3>
+                    <p>You get 3 hints per game. Using a hint costs 20% of that round's points, but can help you find tricky huts!</p>
                 </div>
 
                 <div class="help-section">
@@ -89,6 +103,9 @@
                     <span class="points-value" id="points-earned">0</span>
                 </div>
 
+                <!-- Hint Button -->
+                <button id="hint-btn" class="hint-button">💡 Hint (3)</button>
+
                 <!-- Next Button -->
                 <button id="next-btn" class="next-button hidden">Next Hut →</button>
             </aside>
@@ -105,15 +122,31 @@
         <div id="end-screen" class="end-screen hidden">
             <div class="end-content">
                 <h2>🏆 Game Complete! 🏆</h2>
+                
                 <div class="final-score">
                     <span class="final-score-label">Final Score:</span>
                     <span class="final-score-value" id="final-score">0</span>
                     <span class="final-score-max">/ 10,000</span>
                 </div>
+                
+                <div class="high-score-end">
+                    <span class="high-score-label">High Score:</span>
+                    <span class="high-score-value" id="high-score-display">0</span>
+                </div>
+                
+                <!-- Stats Summary -->
+                <div class="stats-summary" id="stats-summary">
+                    <!-- Populated by JS -->
+                </div>
+                
                 <div class="results-breakdown" id="results-breakdown">
                     <!-- Results will be populated here -->
                 </div>
-                <button id="play-again-btn" class="play-again-button">Play Again 🔄</button>
+                
+                <div class="end-buttons">
+                    <button id="share-btn" class="share-button">📋 Share Results</button>
+                    <button id="play-again-btn" class="play-again-button">Play Again 🔄</button>
+                </div>
             </div>
         </div>
     </div>
