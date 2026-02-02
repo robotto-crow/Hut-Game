@@ -229,7 +229,12 @@ function getDefaultStats() {
         bestStreak: 0,
         totalCorrectGuesses: 0,
         countryStats: {}, // Track performance per country
-        lastPlayed: null
+        lastPlayed: null,
+        // Daily challenge stats
+        dailyHighScore: 0,
+        lastDailyPlayed: null, // Date string of last daily
+        dailyCompleted: false, // Has today's daily been completed?
+        dailyStreak: 0 // Consecutive days played
     };
 }
 
@@ -272,7 +277,9 @@ let gameState = {
     state: 'waiting', // 'waiting', 'guessed', 'next_round'
     currentStreak: 0,
     usedHint: false,
-    hintsRemaining: 3
+    hintsRemaining: 3,
+    gameMode: 'random', // 'random' or 'daily'
+    dailySeed: null
 };
 
 // Leaflet map and layers
@@ -286,14 +293,46 @@ let geoJsonData = null;
 // UTILITY FUNCTIONS
 // ==========================================
 
+// Seeded random number generator (for daily challenge)
+function seededRandom(seed) {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+}
+
 // Fisher-Yates Shuffle Algorithm
-function shuffleArray(array) {
+function shuffleArray(array, seed = null) {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const random = seed !== null ? seededRandom(seed + i) : Math.random();
+        const j = Math.floor(random * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
+}
+
+// Get today's date seed (same for everyone worldwide for ~24h)
+function getDailySeed() {
+    const now = new Date();
+    // Use UTC date to ensure same seed globally
+    const dateString = `${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}`;
+    let hash = 0;
+    for (let i = 0; i < dateString.length; i++) {
+        const char = dateString.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
+}
+
+// Get formatted date string for display
+function getTodayString() {
+    const now = new Date();
+    return now.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
 }
 
 // Haversine Formula for Distance Calculation
@@ -376,13 +415,22 @@ function generateShareText() {
     }).join('');
     
     const correctCount = gameState.roundResults.filter(r => r.distanceKm === 0).length;
-    const isNewHighScore = gameState.score >= playerStats.highScore;
     
     let text = `🏔️ Mitch Likes Huts 🏔️\n`;
+    
+    if (gameState.gameMode === 'daily') {
+        text += `📅 Daily Challenge - ${getTodayString()}\n`;
+        if (playerStats.dailyStreak > 1) {
+            text += `🔥 ${playerStats.dailyStreak} day streak!\n`;
+        }
+    }
+    
     text += `Score: ${gameState.score.toLocaleString()} / ${maxScore.toLocaleString()} (${percentage}%)\n`;
     text += `${stars}\n`;
     text += `Found: ${correctCount}/10 huts`;
-    if (isNewHighScore && playerStats.gamesPlayed > 1) {
+    
+    const relevantHighScore = gameState.gameMode === 'daily' ? playerStats.dailyHighScore : playerStats.highScore;
+    if (gameState.score >= relevantHighScore && playerStats.gamesPlayed > 1) {
         text += ` 🎉 NEW HIGH SCORE!`;
     }
     
@@ -478,21 +526,68 @@ function getCorrectStyle() {
 // GAME INITIALIZATION
 // ==========================================
 
-function initGame() {
-    gameState.shuffledHuts = shuffleArray(huts);
+function initGame(mode = 'random') {
+    gameState.gameMode = mode;
+    
+    if (mode === 'daily') {
+        // Check if already completed today's daily
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (playerStats.lastDailyPlayed === todayStr && playerStats.dailyCompleted) {
+            // Already completed - show results instead
+            showDailyAlreadyCompleted();
+            return;
+        }
+        
+        gameState.dailySeed = getDailySeed();
+        gameState.shuffledHuts = shuffleArray(huts, gameState.dailySeed);
+        gameState.hintsRemaining = 1; // Only 1 hint in daily mode
+    } else {
+        gameState.shuffledHuts = shuffleArray(huts);
+        gameState.hintsRemaining = 3;
+    }
+    
     gameState.currentRound = 0;
     gameState.score = 0;
     gameState.roundResults = [];
     gameState.state = 'waiting';
     gameState.currentStreak = 0;
-    gameState.hintsRemaining = 3;
     gameState.usedHint = false;
     
     updateScoreDisplay();
     updateRoundDisplay();
     updateStreakDisplay();
     updateHintButton();
+    updateModeDisplay();
     initMap();
+}
+
+function showDailyAlreadyCompleted() {
+    // Show a message that they've already done today's daily
+    const container = document.getElementById('daily-completed-msg');
+    if (container) {
+        container.classList.remove('hidden');
+        container.innerHTML = `
+            <div class="daily-done-card">
+                <h3>📅 Daily Challenge Complete!</h3>
+                <p>You already completed today's challenge.</p>
+                <p>Your score: <strong>${playerStats.dailyHighScore}</strong></p>
+                <p>Come back tomorrow for a new challenge!</p>
+                <button onclick="initGame('random')" class="play-random-btn">Play Random Mode</button>
+            </div>
+        `;
+    }
+}
+
+function updateModeDisplay() {
+    const modeEl = document.getElementById('game-mode-display');
+    if (modeEl) {
+        if (gameState.gameMode === 'daily') {
+            modeEl.textContent = '📅 Daily Challenge';
+            modeEl.classList.remove('hidden');
+        } else {
+            modeEl.classList.add('hidden');
+        }
+    }
 }
 
 function initMap() {
@@ -971,9 +1066,32 @@ function endGame() {
     playerStats.totalScore += gameState.score;
     playerStats.lastPlayed = new Date().toISOString();
     
-    const isNewHighScore = gameState.score > playerStats.highScore;
-    if (isNewHighScore) {
-        playerStats.highScore = gameState.score;
+    let isNewHighScore = false;
+    
+    if (gameState.gameMode === 'daily') {
+        // Daily challenge specific stats
+        const todayStr = new Date().toISOString().split('T')[0];
+        const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        
+        // Update daily streak
+        if (playerStats.lastDailyPlayed === yesterdayStr) {
+            playerStats.dailyStreak++;
+        } else if (playerStats.lastDailyPlayed !== todayStr) {
+            playerStats.dailyStreak = 1;
+        }
+        
+        playerStats.lastDailyPlayed = todayStr;
+        playerStats.dailyCompleted = true;
+        
+        isNewHighScore = gameState.score > playerStats.dailyHighScore;
+        if (isNewHighScore) {
+            playerStats.dailyHighScore = gameState.score;
+        }
+    } else {
+        isNewHighScore = gameState.score > playerStats.highScore;
+        if (isNewHighScore) {
+            playerStats.highScore = gameState.score;
+        }
     }
     
     saveStats(playerStats);
@@ -1087,6 +1205,54 @@ function closeHelpModal() {
 // EVENT LISTENERS
 // ==========================================
 
+// Show/hide game UI
+function showModeSelect() {
+    document.getElementById('mode-select').classList.remove('hidden');
+    document.getElementById('game-header').classList.add('hidden');
+    document.getElementById('game-main').classList.add('hidden');
+    document.getElementById('daily-completed-msg').classList.add('hidden');
+    
+    // Update mode select stats
+    const statsEl = document.getElementById('mode-stats');
+    if (statsEl && playerStats.gamesPlayed > 0) {
+        statsEl.innerHTML = `
+            <div class="mini-stat">🏆 Best: ${playerStats.highScore.toLocaleString()}</div>
+            <div class="mini-stat">🎮 Games: ${playerStats.gamesPlayed}</div>
+        `;
+    }
+    
+    // Show daily streak if exists
+    const streakEl = document.getElementById('daily-streak-display');
+    if (streakEl && playerStats.dailyStreak > 0) {
+        streakEl.textContent = `🔥 ${playerStats.dailyStreak} day streak`;
+        streakEl.classList.remove('hidden');
+    }
+    
+    // Check if daily already completed today
+    const todayStr = new Date().toISOString().split('T')[0];
+    const dailyBtn = document.getElementById('play-daily-btn');
+    if (dailyBtn) {
+        if (playerStats.lastDailyPlayed === todayStr && playerStats.dailyCompleted) {
+            dailyBtn.classList.add('completed');
+            dailyBtn.querySelector('.mode-desc').textContent = `✅ Completed! Score: ${playerStats.dailyHighScore}`;
+        } else {
+            dailyBtn.classList.remove('completed');
+            dailyBtn.querySelector('.mode-desc').textContent = 'Same huts for everyone today';
+        }
+    }
+}
+
+function hideModeSelect() {
+    document.getElementById('mode-select').classList.add('hidden');
+    document.getElementById('game-header').classList.remove('hidden');
+    document.getElementById('game-main').classList.remove('hidden');
+}
+
+function startGameWithMode(mode) {
+    hideModeSelect();
+    initGame(mode);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('next-btn').addEventListener('click', () => {
         startRound();
@@ -1094,8 +1260,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('play-again-btn').addEventListener('click', () => {
         document.getElementById('end-screen').classList.add('hidden');
-        initGame();
+        showModeSelect();
     });
+    
+    // Mode selection buttons
+    const randomBtn = document.getElementById('play-random-btn');
+    if (randomBtn) {
+        randomBtn.addEventListener('click', () => startGameWithMode('random'));
+    }
+    
+    const dailyBtn = document.getElementById('play-daily-btn');
+    if (dailyBtn) {
+        dailyBtn.addEventListener('click', () => startGameWithMode('daily'));
+    }
     
     // Hint button
     const hintBtn = document.getElementById('hint-btn');
@@ -1133,5 +1310,6 @@ document.addEventListener('DOMContentLoaded', () => {
         highScoreHeader.parentElement.classList.remove('hidden');
     }
     
-    initGame();
+    // Show mode selection screen instead of starting game directly
+    showModeSelect();
 });
