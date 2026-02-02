@@ -21,13 +21,18 @@ A geography guessing game featuring mountain huts from around the world. Guess w
 
 - **🏆 High Scores** - Your best score is saved locally and persists between sessions
 - **📊 Statistics** - Track games played, average score, and best streak
+- **📅 Daily Challenge** - Same huts for everyone worldwide each day!
+  - Seeded random ensures identical order globally
+  - Separate daily high score tracking
+  - Daily streak counter (consecutive days played)
+  - Only 1 hint allowed (harder mode!)
 - **🔥 Streak Bonuses** - Consecutive correct guesses earn bonus points:
   - 2 in a row: +10%
   - 3 in a row: +20%
   - 4 in a row: +30%
   - 5+ in a row: up to +50%
-- **💡 Hints** - 3 hints per game (region clues), costs 20% of that round's points
-- **📋 Share Results** - Wordle-style shareable results text
+- **💡 Hints** - 3 hints per game in random mode (1 in daily), costs 20% of round's points
+- **📋 Share Results** - Wordle-style shareable results text (includes daily date & streak)
 - **🎉 Confetti** - Celebration animation on new high scores!
 - **📱 Mobile Support** - Responsive design works on phones and tablets
 
@@ -86,11 +91,13 @@ Hut-Game/
 ## 🎯 Future Ideas
 
 - [ ] More huts from more countries
-- [ ] Daily challenge mode (same huts for everyone each day)
+- [x] ~~Daily challenge mode~~ ✅ Added!
 - [ ] Difficulty modes (Easy/Normal/Hard)
 - [ ] Sound effects (optional)
-- [ ] Leaderboards
+- [ ] Global leaderboards
 - [ ] Multiplayer mode
+- [ ] Time-based bonus points
+- [ ] Achievement badges
 
 ## 👤 Credits
 
